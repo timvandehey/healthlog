@@ -9,10 +9,11 @@
  */
 
 // --- Configuration ---
-const SERVER_PORT = 8000;
-const COUCHDB_URL = "http://127.0.0.1:5984";
-const DATABASE_NAME = "health_logs";
+const SERVER_PORT = parseInt(Deno.env.get("PORT") || "8000", 10);
+const COUCHDB_URL = Deno.env.get("COUCHDB_URL") || "http://127.0.0.1:5984";
+const DATABASE_NAME = Deno.env.get("DB_NAME") || "health_logs";
 const DB_BASE_URL = `${COUCHDB_URL}/${DATABASE_NAME}`;
+
 
 // Simple function to handle CORS headers
 const corsHeaders = {
@@ -21,6 +22,20 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
 };
+
+/**
+ * Creates a JSON response with consistent CORS headers.
+ * @param {any} body The response body, which will be JSON stringified.
+ * @param {number} status The HTTP status code.
+ * @returns {Response}
+ */
+function jsonResponse(body, status) {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: corsHeaders,
+    });
+}
+
 
 // --- CouchDB Setup Utility ---
 
@@ -53,55 +68,84 @@ async function ensureDatabaseExists() {
     }
 }
 
+/**
+ * Ensures that the necessary Mango query indexes exist in the database.
+ */
+async function ensureIndexesExist() {
+    console.log("Checking for required database indexes...");
+    const indexDefinition = {
+        index: {
+            fields: ['datetime'] // We want to query and sort by the datetime field
+        },
+        name: 'datetime-index', // A descriptive name for the index
+        type: 'json'
+    };
+
+    try {
+        const response = await fetch(`${DB_BASE_URL}/_index`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(indexDefinition)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.result === 'created') {
+                console.log("Index 'datetime-index' was created.");
+            } else {
+                console.log("Index 'datetime-index' already exists.");
+            }
+        } else {
+            console.error(`Failed to create index: ${await response.text()}`);
+        }
+    } catch (error) {
+        console.error(`Error ensuring index exists: ${error.message}`);
+    }
+}
 // --- Request Handlers ---
 
 /**
  * Handles OPTIONS requests for CORS preflight.
  */
 function handleOptions(request) {
-    return new Response(null, {
-        status: 204, // No Content
-        headers: corsHeaders,
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
 }
 
 /**
  * Handles GET requests to fetch all documents.
- * Queries CouchDB using the _all_docs endpoint with include_docs=true.
+ * Queries CouchDB using a Mango query to sort by datetime descending.
  */
 async function handleGetLogs() {
     console.log("Handling GET request: Fetching all logs.");
     try {
-        // Fetch all documents and include their content
-        const couchResponse = await fetch(`${DB_BASE_URL}/_all_docs?include_docs=true`, {
-            headers: { 'Content-Type': 'application/json' }
+        // Use the _find endpoint to query with sorting
+        const mangoQuery = {
+            selector: {
+                // Select all documents where 'datetime' exists. This also implicitly filters out design docs.
+                datetime: { '$gt': null } 
+            },
+            sort: [{ datetime: 'desc' }] // Sort by datetime, newest first
+        };
+
+        const couchResponse = await fetch(`${DB_BASE_URL}/_find`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mangoQuery)
         });
 
         if (!couchResponse.ok) {
             console.error(`CouchDB GET Error: ${couchResponse.status}`);
-            return new Response(JSON.stringify({ error: 'Failed to fetch from database' }), {
-                status: couchResponse.status,
-                headers: corsHeaders
-            });
+            return jsonResponse({ error: 'Failed to fetch from database', details: await couchResponse.text() }, couchResponse.status);
         }
 
         const data = await couchResponse.json();
-        // Map CouchDB response rows to simple log objects, filtering out design documents if any
-        const logs = data.rows
-            .map(row => row.doc)
-            .filter(doc => doc && !doc._id.startsWith('_design/'));
+        const logs = data.docs; // The documents are in the 'docs' array
 
-        return new Response(JSON.stringify(logs), {
-            status: 200,
-            headers: corsHeaders,
-        });
+        return jsonResponse(logs, 200);
 
     } catch (error) {
         console.error('Error during GET operation:', error);
-        return new Response(JSON.stringify({ error: `Server error: ${error.message}` }), {
-            status: 500,
-            headers: corsHeaders
-        });
+        return jsonResponse({ error: `Server error: ${error.message}` }, 500);
     }
 }
 
@@ -114,6 +158,12 @@ async function handlePostLog(request) {
     try {
         const newLog = await request.json();
 
+        // Basic validation: ensure required fields exist.
+        if (!newLog.datetime || !newLog.weight) {
+            return jsonResponse({ error: 'Invalid log data: "datetime" and "weight" are required.' }, 400);
+        }
+
+
         // Use CouchDB's native POST method for auto-generated IDs
         const couchResponse = await fetch(DB_BASE_URL, {
             method: 'POST',
@@ -124,24 +174,14 @@ async function handlePostLog(request) {
         if (!couchResponse.ok) {
             const errorText = await couchResponse.text();
             console.error(`CouchDB POST Error: ${couchResponse.status} - ${errorText}`);
-            return new Response(errorText, {
-                status: couchResponse.status,
-                headers: corsHeaders
-            });
+            return jsonResponse({ error: 'Failed to save to database', details: errorText }, couchResponse.status);
         }
 
         const result = await couchResponse.json();
-        return new Response(JSON.stringify({ success: true, id: result.id }), {
-            status: 201, // Created
-            headers: corsHeaders,
-        });
-
+        return jsonResponse({ success: true, id: result.id, rev: result.rev, ...newLog }, 201);
     } catch (error) {
         console.error('Error during POST operation:', error);
-        return new Response(JSON.stringify({ error: `Invalid JSON or server error: ${error.message}` }), {
-            status: 500,
-            headers: corsHeaders
-        });
+        return jsonResponse({ error: `Invalid JSON or server error: ${error.message}` }, 400);
     }
 }
 
@@ -164,14 +204,12 @@ async function handler(request) {
     }
     
     // Handle 404 for all other paths
-    return new Response(JSON.stringify({ error: 'Not Found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: 'Not Found' }, 404);
 }
 
 // Initialize database and start the server
 await ensureDatabaseExists();
+await ensureIndexesExist(); // Create our index after ensuring DB exists
 console.log(`Deno server running on http://localhost:${SERVER_PORT}`);
 
 // Start the server using Deno's standard library
