@@ -13,24 +13,34 @@
     <script type="module">
         import { Login } from './login.js';
         import { Counter } from './counter.js';
+        import { Header } from './header.js';
 
         // Initialize Juris app
         const juris = new Juris({
             components: {
                 Login,
-                Counter
+                Counter,
+                Header
             },
             
             layout: {
                 div: {
-                    // Use a function to dynamically choose the component to render
-                    children: () => {
-                        if (juris.getState('isLoggedIn')) {
-                            return [{ Counter: {} }]; // Show Counter if logged in
-                        } else {
-                            return [{ Login: {} }]; // Show Login otherwise
+                    children: [
+                        { Header: {} }, // Always show the header
+                        {
+                            // Main content area that will switch between Login and Counter
+                            div: {
+                                className: 'main-content',
+                                children: () => {
+                                    if (juris.getState('isLoggedIn')) {
+                                        return [{ Counter: {} }]; // Show Counter if logged in
+                                    } else {
+                                        return [{ Login: {} }]; // Show Login otherwise
+                                    }
+                                }
+                            }
                         }
-                    }
+                    ]
                 }
             },
             
@@ -39,9 +49,16 @@
                 email: '',
                 password: '',
                 isLoggedIn: false, // Controls which view is shown
-                count: 0 // Initial state for the Counter component
+                count: 0, // Initial state for the Counter component
+                theme: 'light' // Add theme to the global state
             }
         });
+
+        // --- Theme Initialization ---
+        // Check localStorage for a saved theme and apply it on load
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        juris.setState('theme', savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
 
         // Render the app
         juris.render('#app');
@@ -49,7 +66,7 @@
         // Global access for debugging
         window.juris = juris;
 
-        console.log('🎯 App Ready! Please log in.');
+        console.log(`🎯 App Ready! Theme set to: ${savedTheme}. Please log in.`);
         console.log('📊 Current state:', juris.getState());
     </script>
 </body>

@@ -1,24 +1,63 @@
+        /* --- CSS Variables for Theming --- */
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --card-shadow: 0 20px 40px rgba(255, 107, 53, 0.15);
+            --card-border: 1px solid rgba(255, 107, 53, 0.1);
+            --input-border: #ddd;
+            --primary-color: #ff6b35;
+            --primary-hover: #e55a2b;
+            --secondary-bg: #f1f3f4;
+            --secondary-text: #333;
+            --secondary-hover: #e8eaed;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --card-border: 1px solid #333;
+            --input-border: #444;
+            --primary-color: #ff8a5c;
+            --primary-hover: #ff6b35;
+            --secondary-bg: #333;
+            --secondary-text: #e0e0e0;
+            --secondary-hover: #444;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #ffffff;
+            background: var(--bg-color);
+            color: var(--text-color);
             min-height: 100vh;
+        }
+
+        .main-content {
             display: flex;
             align-items: center;
             justify-content: center;
+            padding-top: 80px; /* Space for the fixed header */
         }
 
         .counter-app {
             background: white;
+            background: var(--card-bg);
             padding: 3rem;
             border-radius: 1rem;
             box-shadow: 0 20px 40px rgba(255, 107, 53, 0.15);
             border: 1px solid rgba(255, 107, 53, 0.1);
+            box-shadow: var(--card-shadow);
+            border: var(--card-border);
             text-align: center;
             min-width: 300px;
         }
@@ -34,13 +73,17 @@
             width: 100%;
             padding: 1rem;
             border: 1px solid #ddd;
+            border: 1px solid var(--input-border);
             border-radius: 0.5rem;
             font-size: 1rem;
+            background: var(--bg-color);
+            color: var(--text-color);
         }
 
         .counter-title {
             font-size: 2rem;
             color: #333;
+            color: var(--text-color);
             margin-bottom: 2rem;
             font-weight: 300;
         }
@@ -49,6 +92,7 @@
             font-size: 4rem;
             font-weight: bold;
             color: #ff6b35;
+            color: var(--primary-color);
             margin: 2rem 0;
             font-family: 'Monaco', 'Courier New', monospace;
         }
@@ -73,21 +117,26 @@
 
         .btn-primary {
             background: #ff6b35;
+            background: var(--primary-color);
             color: white;
         }
 
         .btn-primary:hover {
             background: #e55a2b;
+            background: var(--primary-hover);
             transform: translateY(-2px);
         }
 
         .btn-secondary {
             background: #f1f3f4;
             color: #333;
+            background: var(--secondary-bg);
+            color: var(--secondary-text);
         }
 
         .btn-secondary:hover {
             background: #e8eaed;
+            background: var(--secondary-hover);
             transform: translateY(-2px);
         }
 
@@ -99,6 +148,39 @@
             font-size: 0.9rem;
             color: #666;
             border: 1px solid rgba(255, 107, 53, 0.1);
+            color: var(--secondary-text);
+            border: 1px solid var(--card-border);
+            background: var(--bg-color);
+        }
+
+        /* --- Header Styles --- */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: var(--card-bg);
+            box-shadow: var(--card-shadow);
+            z-index: 1000;
+        }
+
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            line-height: 1;
         }
 
         .info-row {
