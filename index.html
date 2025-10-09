@@ -3,31 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Counter - Juris Framework</title>
+    <title>Juris App - Login & Counter</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app"></div>
     
     <script src="https://unpkg.com/juris"></script>
-    <script type="module" src="counter.js"></script>
     <script type="module">
-        import {Counter} from './counter.js';
+        import { Login } from './login.js';
+        import { Counter } from './counter.js';
+
         // Initialize Juris app
         const juris = new Juris({
             components: {
+                Login,
                 Counter
             },
             
             layout: {
                 div: {
-                    children: [{ Counter: {} }]
+                    // Use a function to dynamically choose the component to render
+                    children: () => {
+                        if (juris.getState('isLoggedIn')) {
+                            return [{ Counter: {} }]; // Show Counter if logged in
+                        } else {
+                            return [{ Login: {} }]; // Show Login otherwise
+                        }
+                    }
                 }
             },
             
-            // states: {
-            //     count: 0
-            // }
+            // Initial state for the entire application
+            states: {
+                email: '',
+                password: '',
+                isLoggedIn: false, // Controls which view is shown
+                count: 0 // Initial state for the Counter component
+            }
         });
 
         // Render the app
@@ -36,9 +49,8 @@
         // Global access for debugging
         window.juris = juris;
 
-        console.log('🎯 Simple Counter Ready!');
-        console.log('💡 Try: juris.setState("count", 42)');
-        console.log('📊 Current state:', juris.getState('count'));
+        console.log('🎯 App Ready! Please log in.');
+        console.log('📊 Current state:', juris.getState());
     </script>
 </body>
 </html>

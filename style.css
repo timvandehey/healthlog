@@ -23,6 +23,21 @@
             min-width: 300px;
         }
 
+        /* Styles for the new form elements */
+        .counter-app form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
         .counter-title {
             font-size: 2rem;
             color: #333;
